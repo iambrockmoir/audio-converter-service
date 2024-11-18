@@ -8,13 +8,13 @@ const { exec } = require('child_process');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-// Check FFmpeg installation and codecs
-exec('ffmpeg -codecs', (error, stdout, stderr) => {
+// Check FFmpeg installation
+exec('ffmpeg -version', (error, stdout, stderr) => {
     if (error) {
-        console.error('Error checking codecs:', error);
+        console.error('FFmpeg not found:', error);
         return;
     }
-    console.log('Available codecs:', stdout);
+    console.log('FFmpeg version info:', stdout);
 });
 
 app.post('/convert', upload.single('audio'), (req, res) => {
@@ -37,13 +37,13 @@ app.post('/convert', upload.single('audio'), (req, res) => {
 
     console.log('Converting file...');
 
-    // Try to read the file header
+    // Read and log the file header
     const fileContent = fs.readFileSync(inputPath);
-    console.log('File content (first 10 bytes):', fileContent.slice(0, 10));
+    console.log('File header:', fileContent.slice(0, 6).toString('hex'));
 
     ffmpeg(inputPath)
-        .inputFormat('amr')  // Specify input format
-        .audioCodec('libmp3lame')  // Use MP3 encoder
+        .inputFormat('amr')
+        .audioCodec('libmp3lame')
         .audioChannels(1)
         .audioBitrate('128k')
         .on('start', (commandLine) => {
@@ -70,12 +70,6 @@ app.post('/convert', upload.single('audio'), (req, res) => {
         .on('error', (err) => {
             console.error('FFmpeg error:', err);
             console.error('FFmpeg error message:', err.message);
-            
-            // Try direct ffmpeg command for debugging
-            exec(`ffmpeg -i ${inputPath}`, (error, stdout, stderr) => {
-                console.log('FFmpeg file inspection:', stderr);
-            });
-            
             res.status(500).send('Conversion failed: ' + err.message);
             try {
                 fs.unlinkSync(inputPath);
