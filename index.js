@@ -8,22 +8,13 @@ const { exec } = require('child_process');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-// Check FFmpeg installation
-exec('ffmpeg -version', (error, stdout, stderr) => {
+// Check FFmpeg installation and codecs
+exec('ffmpeg -codecs', (error, stdout, stderr) => {
     if (error) {
-        console.error('FFmpeg not found:', error);
+        console.error('Error checking codecs:', error);
         return;
     }
-    console.log('FFmpeg version info:', stdout);
-});
-
-// Check AMR codec support
-exec('ffmpeg -codecs | grep amr', (error, stdout, stderr) => {
-    if (error) {
-        console.error('Error checking AMR support:', error);
-        return;
-    }
-    console.log('AMR codec support:', stdout);
+    console.log('Available codecs:', stdout);
 });
 
 app.post('/convert', upload.single('audio'), (req, res) => {
@@ -46,9 +37,13 @@ app.post('/convert', upload.single('audio'), (req, res) => {
 
     console.log('Converting file...');
 
+    // Try to read the file header
+    const fileContent = fs.readFileSync(inputPath);
+    console.log('File content (first 10 bytes):', fileContent.slice(0, 10));
+
     ffmpeg(inputPath)
-        .inputOptions(['-acodec', 'libopencore_amrnb'])  // Specify AMR-NB decoder
-        .toFormat('mp3')
+        .inputFormat('amr')  // Specify input format
+        .audioCodec('libmp3lame')  // Use MP3 encoder
         .audioChannels(1)
         .audioBitrate('128k')
         .on('start', (commandLine) => {
@@ -75,6 +70,12 @@ app.post('/convert', upload.single('audio'), (req, res) => {
         .on('error', (err) => {
             console.error('FFmpeg error:', err);
             console.error('FFmpeg error message:', err.message);
+            
+            // Try direct ffmpeg command for debugging
+            exec(`ffmpeg -i ${inputPath}`, (error, stdout, stderr) => {
+                console.log('FFmpeg file inspection:', stderr);
+            });
+            
             res.status(500).send('Conversion failed: ' + err.message);
             try {
                 fs.unlinkSync(inputPath);

@@ -1,9 +1,10 @@
 FROM node:18-slim
 
-# Install FFmpeg with AMR support
+# Install FFmpeg and AMR codecs
 RUN apt-get update && \
     apt-get install -y ffmpeg && \
     apt-get install -y libopencore-amrnb0 libopencore-amrwb0 && \
+    apt-get install -y libavcodec-extra && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
