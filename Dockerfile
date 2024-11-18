@@ -1,16 +1,11 @@
-FROM node:18
+FROM jrottenberg/ffmpeg:4.4-ubuntu
 
-# Install ffmpeg and additional codecs
+# Install Node.js
 RUN apt-get update && \
-    apt-get install -y ffmpeg \
-    libavcodec-extra \
-    libavfilter-extra \
-    libavformat-extra \
-    libavutil-extra \
-    libpostproc-extra \
-    libswresample-extra \
-    libswscale-extra \
-    && rm -rf /var/lib/apt/lists/*
+    apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY package*.json ./
