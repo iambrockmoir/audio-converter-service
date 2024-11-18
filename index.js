@@ -34,7 +34,16 @@ app.post('/convert', upload.single('audio'), (req, res) => {
     console.log('Input path:', inputPath);
     console.log('Output path:', outputPath);
 
+    // Read first few bytes to verify it's an AMR file
+    const header = fs.readFileSync(inputPath, { length: 6 });
+    console.log('File header:', header.toString());
+
     ffmpeg(inputPath)
+        .inputFormat('amr')  // Explicitly set input format
+        .audioCodec('libmp3lame')  // Use MP3 codec
+        .audioBitrate('128k')  // Set bitrate
+        .audioChannels(1)  // Mono audio
+        .audioFrequency(44100)  // Sample rate
         .toFormat('mp3')
         .on('start', (commandLine) => {
             console.log('Started ffmpeg with command:', commandLine);
@@ -73,13 +82,12 @@ app.post('/convert', upload.single('audio'), (req, res) => {
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
-    // Log ffmpeg version
-    ffmpeg.getAvailableFormats((err, formats) => {
+    // Log ffmpeg version and codecs
+    ffmpeg.getAvailableCodecs((err, codecs) => {
         if (err) {
-            console.error('Error getting formats:', err);
+            console.error('Error getting codecs:', err);
         } else {
-            console.log('Available formats:', Object.keys(formats));
+            console.log('Available codecs:', Object.keys(codecs));
         }
     });
 });
-
