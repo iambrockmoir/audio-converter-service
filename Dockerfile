@@ -1,10 +1,9 @@
-FROM jrottenberg/ffmpeg:4.4-ubuntu
+FROM node:18-slim
 
-# Install Node.js
+# Install FFmpeg with AMR support
 RUN apt-get update && \
-    apt-get install -y curl && \
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs && \
+    apt-get install -y ffmpeg && \
+    apt-get install -y libopencore-amrnb0 libopencore-amrwb0 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -15,5 +14,7 @@ COPY . .
 # Create uploads directory
 RUN mkdir -p uploads && chmod 777 uploads
 
+# Set the command to run the Node.js application
 EXPOSE 3000
-CMD ["npm", "start"]
+ENTRYPOINT ["node"]
+CMD ["index.js"]
