@@ -41,6 +41,10 @@ app.post('/convert', upload.single('audio'), (req, res) => {
     const fileContent = fs.readFileSync(inputPath);
     console.log('File header:', fileContent.slice(0, 6).toString('hex'));
 
+    // Log the full FFmpeg command
+    const command = `ffmpeg -f amr -i ${inputPath} -y -acodec libmp3lame -ac 1 -b:a 128k ${outputPath}`;
+    console.log('Started ffmpeg with command:', command);
+
     ffmpeg(inputPath)
         .inputFormat('amr')
         .audioCodec('libmp3lame')
