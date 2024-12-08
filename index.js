@@ -74,15 +74,12 @@ app.post('/convert', upload.single('audio'), (req, res) => {
             if (callback_url) {
                 const audioData = fs.readFileSync(outputPath, { encoding: 'base64' });
                 
-                console.log('Attempting callback to:', callback_url);
-                console.log('Callback payload:', {
-                    from_number,
-                    audio_size: audioData.length
-                });
+                console.log('Sending audio to Rails for transcription');
                 
-                axios.post(callback_url, {
+                axios.post('https://audio-converter-service-production.up.railway.app/process', {
                     audio: audioData,
-                    from_number: from_number
+                    from_number: from_number,
+                    callback_url: callback_url
                 }, {
                     headers: {
                         'Content-Type': 'application/json'
@@ -90,9 +87,9 @@ app.post('/convert', upload.single('audio'), (req, res) => {
                     maxContentLength: Infinity,
                     maxBodyLength: Infinity
                 })
-                .then(() => console.log('Callback successful'))
+                .then(() => console.log('Audio sent to Rails successfully'))
                 .catch(err => {
-                    console.error('Callback failed:', err.message);
+                    console.error('Failed to send to Rails:', err.message);
                     if (err.response) {
                         console.error('Response data:', err.response.data);
                         console.error('Response status:', err.response.status);
