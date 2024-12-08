@@ -17,5 +17,4 @@ RUN mkdir -p uploads && chmod 777 uploads
 
 # Set the command to run the Node.js application
 EXPOSE 3000
-ENTRYPOINT ["node"]
-CMD ["index.js"]
+CMD ["npm", "start"]
