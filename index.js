@@ -18,6 +18,10 @@ exec('ffmpeg -version', (error, stdout, stderr) => {
 });
 
 app.post('/convert', upload.single('audio'), (req, res) => {
+    // Set a longer timeout
+    req.setTimeout(30000);
+    res.setTimeout(30000);
+    
     console.log('Received conversion request');
     
     if (!req.file) {
