@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const axios = require('axios');
+const FormData = require('form-data');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -69,15 +70,26 @@ app.post('/convert', upload.single('audio'), (req, res) => {
             
             // Send converted file and trigger callback
             if (callback_url) {
-                const formData = new FormData();
-                formData.append('audio', fs.createReadStream(outputPath));
-                formData.append('from_number', from_number);
+                const form = new FormData();
+                form.append('audio', fs.createReadStream(outputPath));
+                form.append('from_number', from_number);
                 
-                axios.post(callback_url, formData, {
-                    headers: formData.getHeaders()
+                axios.post(callback_url, form, {
+                    headers: {
+                        ...form.getHeaders(),
+                        'Content-Type': 'multipart/form-data'
+                    },
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity
                 })
                 .then(() => console.log('Callback successful'))
-                .catch(err => console.error('Callback failed:', err));
+                .catch(err => {
+                    console.error('Callback failed:', err.message);
+                    if (err.response) {
+                        console.error('Response data:', err.response.data);
+                        console.error('Response status:', err.response.status);
+                    }
+                });
             }
             
             res.download(outputPath, 'converted.mp3', (err) => {

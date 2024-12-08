@@ -2,25 +2,21 @@ class AudioController < ApplicationController
     def process
       logger.info "Processing audio request..."
       
-      # Log the uploaded file
-      logger.info "Received file: #{params[:audio].inspect}"
-      
-      # Get the uploaded file
-      audio_file = params[:audio]
+      # Log the request details
+      logger.info "Received request: media_url=#{params[:media_url]}, from_number=#{params[:from_number]}"
       
       begin
-        # Convert the audio
-        converter = AudioConverter.new
-        mp3_data = converter.convert(audio_file)
-        logger.info "Conversion successful, mp3 size: #{mp3_data.length} bytes"
+        # Queue the processing job
+        AudioProcessingJob.perform_later(
+          media_url: params[:media_url],
+          from_number: params[:from_number],
+          callback_url: params[:callback_url]
+        )
         
-        # Return the converted data
-        send_data mp3_data, 
-                  filename: "converted.mp3",
-                  type: "audio/mpeg",
-                  disposition: "attachment"
+        # Return accepted response
+        render json: { status: 'processing' }, status: :accepted
       rescue => e
-        logger.error "Conversion failed: #{e.message}"
+        logger.error "Failed to queue job: #{e.message}"
         logger.error e.backtrace.join("\n")
         render json: { error: e.message }, status: :internal_server_error
       end
