@@ -92,6 +92,10 @@ app.post('/convert', upload.single('audio'), async (req, res) => {
                 // Send transcription back to Vercel
                 if (callback_url) {
                     console.log('Sending transcription to callback URL:', callback_url);
+                    console.log('Sending data:', {
+                        from_number: from_number,
+                        transcription: transcription.text
+                    });
                     
                     await axios.post(callback_url, {
                         from_number: from_number,
