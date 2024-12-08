@@ -1,5 +1,5 @@
 class AudioConverter
-  def convert(input_file)
+  def self.convert(media_url)
     logger.info "Starting conversion..."
     
     # Create temporary files
@@ -7,8 +7,21 @@ class AudioConverter
     output_path = Rails.root.join('tmp', "output_#{SecureRandom.hex(8)}.mp3")
     
     begin
-      # Write uploaded file to disk
-      File.binwrite(input_path, input_file.read)
+      # Download from Twilio with authentication
+      response = HTTParty.get(
+        media_url,
+        basic_auth: {
+          username: ENV['TWILIO_ACCOUNT_SID'],
+          password: ENV['TWILIO_AUTH_TOKEN']
+        }
+      )
+      
+      if response.code != 200
+        raise "Failed to download from Twilio: #{response.code} - #{response.body}"
+      end
+      
+      # Write downloaded data to disk
+      File.binwrite(input_path, response.body)
       logger.info "Wrote input file to #{input_path}"
       
       # Run FFmpeg
