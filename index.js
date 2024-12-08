@@ -4,6 +4,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const axios = require('axios');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -21,6 +22,9 @@ app.post('/convert', upload.single('audio'), (req, res) => {
     // Set a longer timeout
     req.setTimeout(30000);
     res.setTimeout(30000);
+    
+    const callback_url = req.body.callback_url;
+    const from_number = req.body.from_number;
     
     console.log('Received conversion request');
     
@@ -62,6 +66,20 @@ app.post('/convert', upload.single('audio'), (req, res) => {
         })
         .on('end', () => {
             console.log('Conversion finished');
+            
+            // Send converted file and trigger callback
+            if (callback_url) {
+                const formData = new FormData();
+                formData.append('audio', fs.createReadStream(outputPath));
+                formData.append('from_number', from_number);
+                
+                axios.post(callback_url, formData, {
+                    headers: formData.getHeaders()
+                })
+                .then(() => console.log('Callback successful'))
+                .catch(err => console.error('Callback failed:', err));
+            }
+            
             res.download(outputPath, 'converted.mp3', (err) => {
                 if (err) {
                     console.error('Error sending file:', err);
