@@ -70,14 +70,14 @@ app.post('/convert', upload.single('audio'), (req, res) => {
             
             // Send converted file and trigger callback
             if (callback_url) {
-                const form = new FormData();
-                form.append('audio', fs.createReadStream(outputPath));
-                form.append('from_number', from_number);
+                const audioData = fs.readFileSync(outputPath, { encoding: 'base64' });
                 
-                axios.post(callback_url, form, {
+                axios.post(callback_url, {
+                    audio: audioData,
+                    from_number: from_number
+                }, {
                     headers: {
-                        ...form.getHeaders(),
-                        'Content-Type': 'multipart/form-data'
+                        'Content-Type': 'application/json'
                     },
                     maxContentLength: Infinity,
                     maxBodyLength: Infinity
@@ -92,18 +92,15 @@ app.post('/convert', upload.single('audio'), (req, res) => {
                 });
             }
             
-            res.download(outputPath, 'converted.mp3', (err) => {
-                if (err) {
-                    console.error('Error sending file:', err);
-                }
-                // Clean up files
-                try {
-                    fs.unlinkSync(inputPath);
-                    fs.unlinkSync(outputPath);
-                } catch (e) {
-                    console.error('Error cleaning up files:', e);
-                }
-            });
+            // Clean up files after sending
+            try {
+                fs.unlinkSync(inputPath);
+                fs.unlinkSync(outputPath);
+            } catch (e) {
+                console.error('Error cleaning up files:', e);
+            }
+            
+            res.json({ status: 'success' });
         })
         .on('error', (err) => {
             console.error('FFmpeg error:', err);
