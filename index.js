@@ -28,6 +28,8 @@ app.post('/convert', upload.single('audio'), (req, res) => {
     const from_number = req.body.from_number;
     
     console.log('Received conversion request');
+    console.log('Callback URL:', callback_url);
+    console.log('From Number:', from_number);
     
     if (!req.file) {
         console.log('No file received');
@@ -72,6 +74,12 @@ app.post('/convert', upload.single('audio'), (req, res) => {
             if (callback_url) {
                 const audioData = fs.readFileSync(outputPath, { encoding: 'base64' });
                 
+                console.log('Attempting callback to:', callback_url);
+                console.log('Callback payload:', {
+                    from_number,
+                    audio_size: audioData.length
+                });
+                
                 axios.post(callback_url, {
                     audio: audioData,
                     from_number: from_number
@@ -88,6 +96,9 @@ app.post('/convert', upload.single('audio'), (req, res) => {
                     if (err.response) {
                         console.error('Response data:', err.response.data);
                         console.error('Response status:', err.response.status);
+                    } else {
+                        console.error('No response received');
+                        console.error('Full error:', err);
                     }
                 });
             }
