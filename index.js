@@ -5,10 +5,15 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const axios = require('axios');
-const FormData = require('form-data');
+const OpenAI = require('openai');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
+
+// Initialize OpenAI
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+});
 
 // Check FFmpeg installation
 exec('ffmpeg -version', (error, stdout, stderr) => {
@@ -19,7 +24,7 @@ exec('ffmpeg -version', (error, stdout, stderr) => {
     console.log('FFmpeg version info:', stdout);
 });
 
-app.post('/convert', upload.single('audio'), (req, res) => {
+app.post('/convert', upload.single('audio'), async (req, res) => {
     // Set a longer timeout
     req.setTimeout(30000);
     res.setTimeout(30000);
@@ -67,48 +72,66 @@ app.post('/convert', upload.single('audio'), (req, res) => {
         .on('progress', (progress) => {
             console.log('Processing: ', progress.percent, '% done');
         })
-        .on('end', () => {
+        .on('end', async () => {
             console.log('Conversion finished');
             
-            // Send converted file and trigger callback
-            if (callback_url) {
-                const audioData = fs.readFileSync(outputPath, { encoding: 'base64' });
-                
-                console.log('Sending audio to Rails for transcription');
-                
-                axios.post('https://audio-converter-service-production.up.railway.app/process', {
-                    audio: audioData,
-                    from_number: from_number,
-                    callback_url: callback_url
-                }, {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    maxContentLength: Infinity,
-                    maxBodyLength: Infinity
-                })
-                .then(() => console.log('Audio sent to Rails successfully'))
-                .catch(err => {
-                    console.error('Failed to send to Rails:', err.message);
-                    if (err.response) {
-                        console.error('Response data:', err.response.data);
-                        console.error('Response status:', err.response.status);
-                    } else {
-                        console.error('No response received');
-                        console.error('Full error:', err);
-                    }
-                });
-            }
-            
-            // Clean up files after sending
             try {
-                fs.unlinkSync(inputPath);
-                fs.unlinkSync(outputPath);
-            } catch (e) {
-                console.error('Error cleaning up files:', e);
+                // Read the converted MP3 file
+                const mp3File = fs.createReadStream(outputPath);
+                
+                console.log('Starting OpenAI transcription');
+                
+                // Transcribe with OpenAI
+                const transcription = await openai.audio.transcriptions.create({
+                    file: mp3File,
+                    model: "whisper-1",
+                });
+                
+                console.log('Transcription completed:', transcription.text);
+                
+                // Send transcription back to Vercel
+                if (callback_url) {
+                    console.log('Sending transcription to callback URL:', callback_url);
+                    
+                    await axios.post(callback_url, {
+                        from_number: from_number,
+                        transcription: transcription.text
+                    }, {
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    console.log('Callback successful');
+                }
+                
+                // Clean up files
+                try {
+                    fs.unlinkSync(inputPath);
+                    fs.unlinkSync(outputPath);
+                } catch (e) {
+                    console.error('Error cleaning up files:', e);
+                }
+                
+                res.json({ status: 'success', transcription: transcription.text });
+            } catch (err) {
+                console.error('Error processing audio:', err);
+                if (callback_url) {
+                    try {
+                        await axios.post(callback_url, {
+                            from_number: from_number,
+                            error: err.message
+                        }, {
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                    } catch (callbackErr) {
+                        console.error('Error sending error callback:', callbackErr);
+                    }
+                }
+                res.status(500).json({ error: err.message });
             }
-            
-            res.json({ status: 'success' });
         })
         .on('error', (err) => {
             console.error('FFmpeg error:', err);
